@@ -1,0 +1,557 @@
+###########################
+#### MT4113 Question 1 ####
+#### ID: 220013309     ####
+###########################
+
+# Q1 a)
+
+# Load library
+library(tidyverse)
+
+# Copied code from task
+# Objective: Calculate a p-value for a randomization test on a
+#            difference in means on paired measurements
+# Inputs: nrand - scalar, the number of randomizations to run
+#         data - matrix, 2 columns, rows are observations
+# Output: p_value for a two-sided test
+rand_test <- function(nrand, data)  {
+  # object to store randomized test statistics
+  rand_test <- NULL
+  # calculate and store observed test statistic
+  obs_diff <- data[,1] - data[,2]
+  obs_test <- mean(obs_diff)
+  rand_test[1] <- obs_test
+  # loop over randomizations
+  for (i in 1:nrand)  {
+    # object to store randomized data
+    rand_data <- rep(0, length(data[,1]))
+    # loop over observations
+    for (t in 1:length(data[,1]))  {
+      # randomize the data within each pair
+      rand_data[t] <- sample(c(1, -1), 1) * obs_diff[t]
+    }
+    # calculate and store the randomized test statistic
+    rand_test[i+1] <- mean(rand_data)
+  }
+  # calculate the p-value, two-sided
+  prop <- sum(rand_test >= obs_test)/(nrand + 1)
+  # checking which side of distribution
+  p_value <- ifelse(prop <= 0.5, 2*prop, 2*(1-prop))
+  # objects to return
+  return(p_value)
+}
+
+# Load data set
+rainfall_df <- readRDS("~/Documents/MT4113 Computing In Statistics/Exams/rainfall.rds")
+
+# Check how long it takes to run 999 randomizations
+sys_0 <- system.time(rand_test(nrand = 999, data = rainfall_df))
+
+# Answer:
+#  user - 25.927s
+#  system - 0.616s
+#  elapsed - 26.649
+
+# Q1 b)
+# Answer: 
+# The code is computationally expensive because of the two for loops:
+# randomizing the data within each pair takes a long time to process;
+# computing the mean of the randomized data within each pair is again a slow 
+# process.
+
+# Q1 c)
+# Optimising the code
+
+# Objective: Calculate a p-value for a randomization test on a
+#            difference in means on paired measurements
+# Inputs: nrand - scalar, the number of randomizations to run
+#         data - matrix, 2 columns, rows are observations
+# Output: p_value for a two-sided test
+rand_test_1 <- function(nrand, data)  {
+  
+  # Pre-set for variable differences
+  rand_diff <- rep(NA, n)
+  # Pre-set variable to store samples
+  rand_samples <- rep(NA, n)
+  rand_s_mean <- NA
+  p_value <- NA
+  
+  # Calculate and store observed test statistic
+  obs_diff <- data[, 1] - data[, 2]
+  # Total difference per observation
+  obs_diff_t <- mean(data[, 1]) - mean(data[, 2])
+  
+  # Merged the two for loops
+  rand_diff <- lapply(1:nrand, function(x) {
+    
+    # Extract random samples
+    rand_samples <- sample(c(1, -1), size = length(data[, 1]), replace = TRUE)
+    # Multiply it by the obserserved difference and find the mean value
+    rand_s_mean <- mean(rand_samples * obs_diff)
+    # Return the mean
+    return(rand_s_mean)
+  })
+  
+  # calculate the p-value, two-sided
+  p_value <- sum(abs(unlist(rand_diff)) >= abs(obs_diff_t)) / (nrand + 1)
+  
+  # Return the p-value
+  return(p_value)
+}
+
+# Check how long it takes to run 999 randomizations
+sys_1 <- system.time(rand_test_1(nrand = 999, data = rainfall_df))
+
+improvement <- sys_0 - sys_1
+
+# Answer: Improved to user 0.135, system 0.000, elapsed 0.135
+#       Improved by user 25.462, system 0.580, elapsed 26.141.
+
+
+# Q1 d)
+# Answer:
+#   The randomisation test can be thought of as a type of Monte-Carlo method,
+#     as it relies on repeatedly randomly sampling a probability distribution.
+#     Although randomisation is a more general method whilst Monte-Carlo is 
+#     tailored to specific cases.
+
+# Q1 e)
+# Answer:
+#   Increasing the number of randomisations would have:
+#   advantage - we'd get a good idea of how much the test statistic changes 
+#   across randomizations,
+#   disadvantage - would be computationally expensive.
+
+
+
+
+
+###########################
+#### MT4113 Question 2 ####
+#### ID: 220013309     ####
+###########################
+
+# Q2 a) i)
+
+# Load data
+exam_queen_df <- readRDS("~/Documents/MT4113 Computing In Statistics/Exams/ExamQueen.rds")
+
+# Function to wrangle the given data to a data frame of singles vs countries,
+# entries give the performances of the singles.
+#    INPUT:
+#         data - ExamQueen original data frame;
+#    OUTPUT: 
+#         Queen - wrangled data frame.
+format_Queen <- function(data) {
+  # Remove the Year collumn
+  data <- subset(data, select = -Year)
+  # Create a wide data frame with columns as countries, values from performance
+  # scores, rows as singles
+  Queen <- data %>% 
+    pivot_wider(names_from = Country, values_from = Performance)
+  # Return the wrangled data frame
+  return(Queen)
+}
+
+# Save the wrangled data frame
+Queen <- format_Queen(exam_queen_df)
+
+# Q2 a) ii)
+# Answer:
+#   Ensuring the code runs and if someone wanted to access it, they should be able
+#     to copy and paste it and run it with no issues, code should be tidy and 
+#     concise, removing code that is not related to the problem being addressed. 
+#   The original data set should be left untouched and each step of wrangling
+#     visible in the script.
+
+
+# Q2 b) i)
+
+# Copied code improved:
+#   missing variables filled in
+#   added comments
+
+# Accessing the observed correlation estimate between the performance of singles 
+# in Australia and US, between paired samples
+obs_cor <- cor.test(Queen$Australia, Queen$US, method = "pearson")$estimate
+
+# Number of simulations to run
+nrand <- 1000
+# Pre-set the variable of correlation
+corstore <- rep(0, 1000)
+# Pre-set variables to store random samples
+rand_aus <- rep(NA, nrow(Queen))
+rand_us <- rep(NA, nrow(Queen))
+# Check if any values are missing
+is.na(Queen$Australia)
+is.na(Queen$US)
+
+# Set the seed for reproducibility
+set.seed(pi)
+# Randomization test of data to test if the performance scores between 
+# Australia and US are correlated
+for (i in 1:nrand) {
+  # Randomly assign the same number of values to the Australia column
+  rand_aus <- sample(Queen$Australia,
+                     size = length(Queen$Australia),
+                     replace = FALSE)
+  # Randomly assign the same number of values to the US column
+  rand_us <- sample(Queen$US,
+                     size = length(Queen$US),
+                     replace = FALSE)
+  # Store simulated correlation score
+  corstore[i] <- cor.test(rand_aus, rand_us, method = "pearson")$estimate
+}
+
+# Plot histogram of the simulated correlations
+hist(corstore)
+# Include the observed correlation as a vertical line in plot
+abline(v = obs_cor, col = "red")
+# p_value of the randomization test
+myp_val <- sum(corstore < obs_cor) / nrand
+
+
+# Q2 b) ii)
+# Answer:
+#   Randomization test. In this case to test whether performance of singles in 
+#     Australia is correlated with the performance in the US.
+
+
+# Q2 c) i)
+# Copied code
+# Bootstrap for confidence intervals
+# Number of simulations
+n <- 1000
+# Pre-set vector for correlation scores
+Cs <- rep(0, n)
+# For reproducibility
+set.seed(pi)
+for (i in 1:n) {
+  # Sample data for Australia without replacement as only one data set needs
+  # to be sampled
+  new_queen <- sample(Queen$Australia, replace = FALSE)
+  # Correlation scores
+  Cs[i] <- cor.test(Queen$US, y = new_queen)$estimate
+}
+
+
+# Q2 c) ii)
+# Confidence intervals for the correlation
+ci <- quantile(Cs, prob = c(0.025, 0.975))
+
+# Answer:
+#   [-0.418, 0.433]
+
+# Q2 c) iii)
+# Answer:
+#   Non-parametric Bootstrap method.
+
+# Q2 c) iv) 
+# Answer: 
+#   The randomization test makes no assumptions about the representativeness 
+#     of the sample. Rather, it poses a question that is specific to the sample 
+#     in question, regardless of how it was collected or created. While the 
+#     assumption in bootstrapping is that the population is infinite or 
+#     sufficiently large that the effect of taking a sample is negligible.
+
+
+
+
+###########################
+#### MT4113 Question 3 ####
+#### ID: 220013309     ####
+###########################
+
+# Q3 a)
+
+# Function to compute approximate power using the Miettinen formula.
+#   INPUTS:
+#     n - number of pairs of data being considered,
+#     delta - proportion of difference in proportions between the two groups,
+#     psi - nuisance parameter, a proportion,
+#     alpha - 100(1−α) percentile of the standard normal distribution,
+#       pre-setting the value for later use.
+#   OUTPUT:
+#     power_a - approximate power.
+approxPower <- function(n, delta, psi, alpha) {
+  # Check if the inputs are correct
+  # psi should be between 0 and 1 inclusive, greater than or equal to delta
+  if (is.numeric(psi) == FALSE || is.vector(psi) == FALSE || !length(psi) == 1 || 
+      is.na(psi) == TRUE || psi >= 1 || !psi >= delta || psi < 0) {
+    stop("Invalid psi (or delta) argument!")
+  }
+  # delta should be between 0 and 1 inclusive, less than or equal to psi
+  if (is.numeric(delta) == FALSE || is.vector(delta) == FALSE || 
+      !length(delta) == 1 || is.na(delta) == TRUE || delta < 0) {
+    stop("Invalid delta argument!")
+  }
+  # n should be number of pairs
+  if (is.numeric(n) == FALSE || is.vector(n) == FALSE || !length(n) == 1 ||
+      is.na(n) == TRUE || n <= 0 || n %% 1 != 0) {
+    stop("Invalid n argument!")
+  }
+  # alpha should be between 0 and 1.
+  if (is.numeric(alpha) == FALSE || is.vector(alpha) == FALSE || 
+      !length(alpha) == 1 || is.na(alpha) == TRUE || alpha < 0 || alpha > 1) {
+    stop("Invalid alpha argument!")
+  }
+  
+  # Pre-set return variable
+  power_a <- NA
+
+  # Compute u alpha
+  u_alpha <- qnorm(p = (1 - alpha), mean = 0, sd = 1)
+  
+  # Formula for numerator
+  numerator <- (-u_alpha * psi) + ((n * psi)^0.5 * abs(delta))
+  # Formula for denominator 
+  denominator <- (psi^2 - ((0.25 * delta^2) * (3 + psi)))^0.5
+  # Compute the value
+  x <- numerator / denominator
+  
+  # phi - cumulative distribution function of the standard normal 
+  # distribution 
+  power_a <- pnorm(q = x, mean = 0, sd = 1, lower.tail = TRUE)
+  
+  # Return computed approximate power
+  return(power_a)
+}
+  
+  
+# Q3 b)
+
+# Function to compute approximate power using the Miettinen formula 
+#   that allows for psi upper and lower bounds to be specified.
+#   INPUTS:
+#     n - number of pairs of data being considered,
+#     delta - proportion of difference in proportions between the two groups,
+#     alpha - 100(1−α) percentile of the standard normal distribution.
+#     psilow - low bound of nuisance parameter, a proportion,
+#     psihigh - high bound of nuisance parameter, a proportion,
+#     B - number of samples to draw.
+#   OUTPUT:
+#     powerPsi - approximate power.
+approxPowerPsi <- function(n, delta, alpha, psilow, psihigh, B) {
+  # Check if the inputs are correct
+  # psilow should be between 0 and 1 inclusive, greater than or equal to delta
+  if (is.numeric(psilow) == FALSE || is.vector(psilow) == FALSE || 
+      !length(psilow) == 1 || is.na(psilow) == TRUE || psilow >= 1 || 
+      !psilow >= delta || psilow < 0 || !psilow < psihigh) {
+    stop("Invalid psilow or psihigh (or delta) argument!")
+  }
+  # psihigh should be between 0 and 1 inclusive, greater than or equal to delta
+  if (is.numeric(psihigh) == FALSE || is.vector(psihigh) == FALSE || 
+      !length(psihigh) == 1 || is.na(psihigh) == TRUE || psihigh >= 1 || 
+      !psihigh >= delta || psihigh < 0) {
+    stop("Invalid psihigh (or delta) argument!")
+  }
+  # psi value range must still be greater or equal to delta
+  if ((psihigh - psilow) < delta) {
+    stop("Invalid psilow, psihigh or delta argument!")
+  }
+  # delta should be between 0 and 1 inclusive, less than or equal to psi
+  if (is.numeric(delta) == FALSE || is.vector(delta) == FALSE || 
+      !length(delta) == 1 || is.na(delta) == TRUE || delta < 0) {
+    stop("Invalid delta argument!")
+  }
+  # n should be number of pairs
+  if (is.numeric(n) == FALSE || is.vector(n) == FALSE || !length(n) == 1 ||
+      is.na(n) == TRUE || n <= 0 || n %% 1 != 0) {
+    stop("Invalid n argument!")
+  }
+  # alpha should be between 0 and 1.
+  if (is.numeric(alpha) == FALSE || is.vector(alpha) == FALSE || 
+      !length(alpha) == 1 || is.na(alpha) == TRUE || alpha < 0 || alpha > 1) {
+    stop("Invalid alpha argument!")
+  }
+  # B should be number of samples to draw
+  if (is.numeric(B) == FALSE || is.vector(B) == FALSE || !length(B) == 1 ||
+      is.na(B) == TRUE || B <= 0 || B %% 1 != 0) {
+    stop("Invalid B argument!")
+  }
+  
+  # Pre-set power variable vector
+  power_psi <- rep(NA, B)
+  # Pre-set return variable
+  powerPsi <- NA
+  # Pre-set sampled psi value
+  psi <- NA
+  
+  # Compute u alpha
+  u_alpha <- qnorm(p = (1 - alpha), mean = 0, sd = 1)
+  
+  # For reproducibility
+  #set.seed(pi)
+  
+  # Simulate B number of psi values
+  for (i in 1:B) {
+    
+    # Sample value of psi from given range
+    psi <- sample(seq(from = psilow, to = psihigh, by = 0.0001), 1)
+    
+    # Formula for numerator
+    numerator <- (-u_alpha * psi) + ((n * psi)^0.5 * abs(delta))
+    # Formula for denominator 
+    denominator <- (psi^2 - ((0.25 * delta^2) * (3 + psi)))^0.5
+    # Compute the value
+    x <- numerator / denominator
+    
+    # phi - cumulative distribution fuction of the standard normal 
+    # distribution 
+    power_psi[i] <- pnorm(q = x, mean = 0, sd = 1, lower.tail = TRUE)
+  }
+  
+  # Return mean value of approximate power
+  powerPsi <- mean(power_psi)
+  
+  # Return approximate power
+  return(powerPsi)
+}
+
+  
+# Q3 c) i)
+
+# Function to compute the minimum value of n required to achieve at least 
+#  a specified power
+#   INPUTS:
+#     power - specified power to achieve, values from 0 to 1 (instead of percentage),
+#     delta - proportion of difference in proportions between the two groups,
+#     psi - nuisance parameter, a proportion.
+#   OUTPUT:
+#     n - smallest sample size required to achieve some power when using 
+#       the function approxPowerPsi().
+approxSampSize <- function(power, delta, psi) {
+  # power should be from 0 to 1
+  if (is.numeric(power) == FALSE || is.vector(power) == FALSE || 
+      !length(power) == 1 || is.na(power) == TRUE || power < 0 || power > 1) {
+    stop("Invalid power argument!")
+  }
+  # delta should be between 0 and 1 inclusive, less than or equal to psi
+  if (is.numeric(delta) == FALSE || is.vector(delta) == FALSE || 
+      !length(delta) == 1 || is.na(delta) == TRUE || delta < 0) {
+    stop("Invalid delta argument!")
+  }
+  # psi should be between 0 and 1 inclusive, greater than or equal to delta
+  if (is.numeric(psi) == FALSE || is.vector(psi) == FALSE || !length(psi) == 1 || 
+      is.na(psi) == TRUE || psi >= 1 || !psi >= delta || psi < 0) {
+    stop("Invalid psi (or delta) argument!")
+  }
+  # alpha should be between 0 and 1.
+  if (is.numeric(alpha) == FALSE || is.vector(alpha) == FALSE || 
+      !length(alpha) == 1 || is.na(alpha) == TRUE || alpha < 0 || alpha > 1) {
+    stop("Invalid alpha argument!")
+  }
+  
+  # Run approxPowerPsi() with different n values
+  for (n in 1:10000) {
+    # Compute power from n 
+    approx_power <- approxPowerPsi(n, delta, psilow = psi - 0.01, 
+                                psihigh = psi + 0.01, alpha = 0.05, B = 1000)
+    # Test if desired power is reached
+    if (approx_power >= power) {break}
+  }
+  
+  # Return sample size
+  return(n)
+}
+
+
+# Q3 c) ii) 
+# Answer:
+#   If n is available, it would be the starting point for the for loop used
+#     in the approxSampSize() function. This would make the computation
+#     faster as there is no need to compute power for a smaller sample size 
+#     than is available.
+
+# Q3 c) iii)
+# Answer:
+#   Compute the lower power limit desirable using the functions approxPower() or
+#     approxPowerPsi() and then set the n value for the approxSampSize().
+  
+# Q3 d) 
+# Answer:
+#    Bisection method - should not be affected, as it is capable to detect all
+#       minima.
+#    Grid search - might get stuck on one of the incorrect minima.
+#    Newton's method - might find the incorrected minimum at one of the 
+#       gradients being 0.
+
+
+
+###########################
+#### MT4113 Question 4 ####
+#### ID: 220013309     ####
+###########################
+
+# Q4 a)
+
+# Merge data frames to plot body temperature against time
+beavers <- data.frame("Beaver" = c(rep(1, nrow(beaver1)), 
+                                   rep(2, nrow(beaver2))) %>% 
+                                      as.factor(),
+                      "Temperature" = c(beaver1$temp, beaver2$temp),
+                      "Time" = c(beaver1$time, beaver2$time))
+
+# Visualize the data by plotting body temperature against time. Plot both
+# sets of data on the same set of axes.
+p <- ggplot(data = beavers, aes(x = Time, y = Temperature, colour = Beaver)) +
+  # Use path plot
+  #geom_smooth(position = "identity", alpha = 0.05) +   
+  geom_point(position = "identity", alpha = 0.5) +
+  # Set labels
+  labs(title = "Beaver temperatures against time",
+       x = "Time (h)",
+       y = "Body Temperature") +
+   # Set plot theme
+   theme_minimal()
+
+# Plot 
+p 
+
+
+# Q4 b) i) Buffer width chosen is 5 as it gives a good range of values without
+#     making the averages too similar, as there are big spikes in the data.
+
+# Copied code
+# Objective: To calculate a moving average for a given
+#            buffer size
+# Inputs: x - vector, numerical data
+#         buffer - scalar, 1 <= buffer <= (length(x) - 1)/2
+# Output: Vector of averages
+moving_average <- function(x, buffer)  {
+  # set constants
+  samp_size <- length(x)
+  # storage variable
+  stat <- rep(0, samp_size - 2*buffer)
+  # loop over windows calculating the average
+  for (i in 1:(samp_size - 2*buffer))  {
+    stat[i] <- mean(x[i:(i + 2*buffer)])
+  }
+  # return the averages
+  return(stat)
+}
+
+# Q4 b) ii)
+
+# Arrange the data frame by time
+beaver1_df <- beaver1 %>% 
+  arrange(by = time, descending = FALSE)
+  
+# Compute the moving average temperatures for beaver 1
+beaver1_ma <- moving_average(x = beaver1_df$temp, buffer = 5)
+# Find x values for these points
+x1_ma <- length(beaver1_ma) 
+
+# Arrange the data frame by time
+beaver2_df <- beaver2 %>% 
+  arrange(by = time, descending = FALSE)
+  
+# Compute the moving average temperatures for beaver 2
+beaver2_ma <- moving_average(x = beaver2_df$temp, buffer = 5)
+summary(beaver2_ma)
+
+ggplot() +
+  geom_point(aes(x = x1_ma, y = beaver1_ma, colour = Beavers$activ))
+  
+
+
